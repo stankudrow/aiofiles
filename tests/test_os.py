@@ -3,7 +3,7 @@
 import asyncio
 import os
 import platform
-from os import stat, walk
+from os import stat
 from os.path import dirname, exists, isdir, join
 from pathlib import Path
 
@@ -500,34 +500,34 @@ async def test_abspath():
     assert result == abs_filename
 
 
-@pytest.mark.parametrize(("path",), [(".",), ("..",)])
-async def test_walk(path: str):
-    """Test the `walk` call."""
-
-    os_walk_res = list(walk(top=path))
-    aio_walk_res = [r async for r in aiofiles.os.walk(top=path)]
-
-    assert aio_walk_res == os_walk_res
+def _act_on_error(oserror):
+    print(f"aiofiles.os.walk onerror handler: {oserror}")
 
 
-async def test_walk_non_blocking():
-    """Test if the `walk` is non-blocking."""
+@pytest.mark.parametrize(
+    ("top", "topdown", "onerror", "followlinks"),
+    [
+        ("non-existent", True, _act_on_error, False),
+        ("README.md", True, None, False),
+        ("README.md", False, _act_on_error, False),
+        ("./src", True, _act_on_error, False),
+        ("./src", False, _act_on_error, False),
+        ("./tests", True, None, True),
+        ("./tests", False, None, True),
+    ],
+)
+async def test_walk(top, topdown, onerror, followlinks):
+    result = [
+        row
+        async for row in aiofiles.os.walk(
+            top=top, topdown=topdown, onerror=onerror, followlinks=followlinks
+        )
+    ]
+    answer = [
+        row
+        for row in os.walk(
+            top=top, topdown=topdown, onerror=onerror, followlinks=followlinks
+        )
+    ]
 
-    async def _set_answer():
-        nonlocal val
-        nonlocal ans
-
-        val = ans
-        await asyncio.sleep(1)
-
-    async def _walk_away():
-        nonlocal val
-        nonlocal ans
-
-        async for _ in aiofiles.os.walk(top="."):
-            pass
-        assert val == ans
-
-    val, ans = 21, 42
-
-    await asyncio.gather(_walk_away(), _set_answer())
+    assert result == answer
