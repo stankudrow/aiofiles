@@ -3,6 +3,7 @@
 import asyncio
 import os
 from functools import partial
+from queue import Queue, Empty
 
 from .base import wrap
 from . import ospath as path
@@ -70,7 +71,7 @@ async def walk(top, topdown=True, onerror=None, followlinks=False):
     Wraps the `os.walk` function.
     """
 
-    def _walk(q: asyncio.Queue):
+    def _walk(q: Queue):
         nonlocal is_over
         try:
             for row in os.walk(
@@ -81,12 +82,12 @@ async def walk(top, topdown=True, onerror=None, followlinks=False):
             is_over = True
 
     loop = asyncio.get_running_loop()
-    queue = asyncio.Queue()
+    queue = Queue()
+
+    is_over = False
 
     walker = partial(_walk, q=queue)
     loop.run_in_executor(None, walker)
-
-    is_over = False
     while True:
         if is_over and queue.empty():
             break
@@ -94,7 +95,6 @@ async def walk(top, topdown=True, onerror=None, followlinks=False):
             entry = queue.get_nowait()
             queue.task_done()
             yield entry
-        except asyncio.queues.QueueEmpty:
+        except Empty:
             pass
-    # cleaning up resources
-    await queue.join()
+    queue.join()
