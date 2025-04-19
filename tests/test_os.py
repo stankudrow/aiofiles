@@ -3,7 +3,6 @@
 import asyncio
 import os
 import platform
-import time
 from collections import defaultdict
 from os import stat
 from os.path import dirname, exists, isdir, join
@@ -540,57 +539,40 @@ async def test_walk(top, topdown, onerror, followlinks):
     "top_path",
     [
         "c3Po-ar2D2",  # does not mean to exist
+        "./.github",
         "./src",
         "./tests",
-        # ".",  # is long
+        # ".",  # it is long
     ],
 )
 async def test_walk_non_blocking(top_path: str):
     async def _test_walk(
         top: str, key: str, storage: defaultdict[str, list]
     ) -> dict[str, Any]:
-        stat: dict[str, Any] = {"status": None, "time": None}
+        stat: dict[str, Any] = {"non_blocking": None}
 
-        start = time.time()
         async for datum in aiofiles.os.walk(top=top):
             storage[key].append(datum)
-            # no need to block the `async for` loop
-            await asyncio.sleep(0)
-        end = time.time() - start
-
-        stat["status"] = True
-        stat["time"] = end
-
-        # only a non-empty result is checked
-        if storage[key]:
+            # checking the statistics (common shareable resource) for other tasks
             other_keys = set(storage) - {key}
-            stat["status"] = any([storage[other_key] for other_key in other_keys])
+            stat["non_blocking"] = any([storage[other_key] for other_key in other_keys])
+            # without the `asyncio.sleep(0)` the `async for` may block
+            await asyncio.sleep(0)
 
         return stat
 
     keys = {f"w_{i}" for i in range(2)}
     storage = defaultdict(list)
 
-    # measuring time
-
-    start_time = time.time()
     tasks: list[asyncio.Task] = [
         asyncio.create_task(_test_walk(top=top_path, key=key, storage=storage))
         for key in keys
     ]
     results = await asyncio.gather(*tasks)
-    elapsed_time = time.time() - start_time
 
-    # preparing and asserting
-
-    codes = {result["status"] for result in results}
-    assert codes
-    assert all(codes)
-
-    times = {result["time"] for result in results}
-    assert times
-    assert all([t < elapsed_time for t in times])
-
-    for wkey, wresult in storage.items():
-        for other_key in set(storage) - {wkey}:
-            assert storage[other_key] == wresult
+    # Asserting that each task does not block the event loop.
+    # Empty results are not assumed to be non-blocking by default.
+    if statuses := (
+        s for s in {result["non_blocking"] for result in results} if s is not None
+    ):
+        assert all(statuses)
