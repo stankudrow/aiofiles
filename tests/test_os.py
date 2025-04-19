@@ -7,7 +7,7 @@ from collections import defaultdict
 from os import stat
 from os.path import dirname, exists, isdir, join
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
 import pytest
 
@@ -548,18 +548,18 @@ async def test_walk(top, topdown, onerror, followlinks):
 async def test_walk_non_blocking(top_path: str):
     async def _test_walk(
         top: str, key: str, storage: defaultdict[str, list]
-    ) -> dict[str, Any]:
-        stat: dict[str, Any] = {"non_blocking": None}
-
+    ) -> Optional[bool]:
+        non_blocking = None
         async for datum in aiofiles.os.walk(top=top):
             storage[key].append(datum)
             # checking the statistics (common shareable resource) for other tasks
             other_keys = set(storage) - {key}
-            stat["non_blocking"] = any([storage[other_key] for other_key in other_keys])
+            if not non_blocking:
+                non_blocking = any([storage[other_key] for other_key in other_keys])
             # without the `asyncio.sleep(0)` the `async for` may block
             await asyncio.sleep(0)
 
-        return stat
+        return non_blocking
 
     keys = {f"w_{i}" for i in range(2)}
     storage = defaultdict(list)
@@ -572,7 +572,5 @@ async def test_walk_non_blocking(top_path: str):
 
     # Asserting that each task does not block the event loop.
     # Empty results are not assumed to be non-blocking by default.
-    if statuses := (
-        s for s in {result["non_blocking"] for result in results} if s is not None
-    ):
+    if statuses := (r for r in results if r is not None):
         assert all(statuses)
