@@ -42,6 +42,7 @@ test = [
     "coverage>=7.8.2",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.0.0",
+    "pytest-random-order>=1.2.0",
 ]
 tox = [
     "tox>=4.26.0",
@@ -71,7 +72,8 @@ minversion = "8.3"
 addopts = [
     "-x",
     "--ff",
-    "--maxfail=1"
+    "--maxfail=1",
+    "--random-order",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
