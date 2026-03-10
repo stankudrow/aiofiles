@@ -7,7 +7,6 @@ from .base import to_agen, wrap
 
 __all__ = [
     "access",
-    "fwalk",
     "getcwd",
     "listdir",
     "makedirs",
@@ -28,7 +27,6 @@ __all__ = [
 ]
 
 access = wrap(os.access)
-fwalk = to_agen(os.fwalk)
 getcwd = wrap(os.getcwd)
 listdir = wrap(os.listdir)
 makedirs = wrap(os.makedirs)
@@ -47,6 +45,9 @@ unlink = wrap(os.unlink)
 walk = to_agen(os.walk)
 
 
+if hasattr(os, "link"):
+    __all__ += ["fwalk"]
+    fwalk = to_agen(os.fwalk)
 if hasattr(os, "link"):
     __all__ += ["link"]
     link = wrap(os.link)
