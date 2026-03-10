@@ -45,7 +45,7 @@ unlink = wrap(os.unlink)
 walk = to_agen(os.walk)
 
 
-if hasattr(os, "link"):
+if hasattr(os, "fwalk"):
     __all__ += ["fwalk"]
     fwalk = to_agen(os.fwalk)
 if hasattr(os, "link"):
