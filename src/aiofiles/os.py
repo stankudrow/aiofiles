@@ -7,6 +7,7 @@ from .base import to_agen, wrap
 
 __all__ = [
     "access",
+    "fwalk",
     "getcwd",
     "listdir",
     "makedirs",
@@ -27,6 +28,7 @@ __all__ = [
 ]
 
 access = wrap(os.access)
+fwalk = to_agen(os.fwalk)
 getcwd = wrap(os.getcwd)
 listdir = wrap(os.listdir)
 makedirs = wrap(os.makedirs)
@@ -42,9 +44,6 @@ scandir = wrap(os.scandir)
 stat = wrap(os.stat)
 symlink = wrap(os.symlink)
 unlink = wrap(os.unlink)
-# In Python 3.9:
-# 1. `inspect.isgeneratorfunction(os.walk)` is False
-# 2. `inspect.isfunction(os.walk)` is True
 walk = to_agen(os.walk)
 
 

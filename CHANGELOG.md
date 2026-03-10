@@ -2,7 +2,7 @@
 
 ## 25.1.0 (2025-10-09)
 
-- Add asynchronous `to_agen` wrapper for synchronous iterators/generators -> add `aiofiles.os.walk`.
+- Add asynchronous `to_agen` wrapper for synchronous iterators/generators -> add `os.fwalk` and `os.walk` async functions.
   [#193](https://github.com/Tinche/aiofiles/pull/193)
 - Switch to [uv](https://docs.astral.sh/uv/) + add Python v3.14 support.
   [#219](https://github.com/Tinche/aiofiles/pull/219)

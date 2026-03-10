@@ -503,7 +503,48 @@ async def test_abspath():
     assert result == abs_filename
 
 
-class TestWalk:
+class TestWalkGenerators:
+    @pytest.mark.parametrize(
+        ("top", "topdown", "onerror", "follow_symlinks"),
+        [
+            (
+                "./src",
+                True,
+                lambda oserror: print(f"aiofiles.os.walk onerror handler: {oserror}"),
+                False,
+            ),
+            (
+                "./src",
+                False,
+                lambda oserror: print(f"aiofiles.os.walk onerror handler: {oserror}"),
+                False,
+            ),
+            ("./tests", True, None, True),
+            ("./tests", False, None, True),
+        ],
+    )
+    async def test_fwalk(
+        self, top: str, topdown: bool, onerror: Callable, follow_symlinks: bool
+    ) -> None:
+        result = [  # noqa: C416
+            row
+            async for row in aiofiles.os.fwalk(
+                top=top,
+                topdown=topdown,
+                onerror=onerror,
+                follow_symlinks=follow_symlinks,
+            )
+        ]
+        answer = list(
+            os.fwalk(
+                top=top,
+                topdown=topdown,
+                onerror=onerror,
+                follow_symlinks=follow_symlinks,
+            )
+        )
+        assert result == answer
+
     @pytest.mark.parametrize(
         ("top", "topdown", "onerror", "followlinks"),
         [
@@ -538,7 +579,6 @@ class TestWalk:
         answer = list(
             os.walk(top=top, topdown=topdown, onerror=onerror, followlinks=followlinks)
         )
-
         assert result == answer
 
     @pytest.mark.parametrize(
