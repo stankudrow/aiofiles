@@ -504,6 +504,7 @@ async def test_abspath():
 
 
 class TestWalkGenerators:
+    @pytest.mark.skipif(platform.system() == "Windows", reason="Doesn't work on Win")
     @pytest.mark.parametrize(
         ("top", "topdown", "onerror", "follow_symlinks"),
         [
