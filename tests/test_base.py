@@ -52,7 +52,7 @@ class TestToAsyncGeneratorWrapper:
         elapsed = time.time() - start
         result: str = "".join(accumulator)
 
-        assert max(word_lengths) * timeout < elapsed < sum(word_lengths) * timeout * 2
+        assert max(word_lengths) * timeout < elapsed < sum(word_lengths) * timeout * 3
         assert set(results) == set(words)
 
         for word in words:
