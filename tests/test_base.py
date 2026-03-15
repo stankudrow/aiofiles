@@ -1,7 +1,9 @@
 import asyncio
 import time
-from collections.abc import AsyncIterable, Generator, Iterable
+from collections.abc import AsyncIterable, Iterable, Sequence
 from typing import Any
+
+import pytest
 
 from aiofiles.base import to_agen, wrap
 
@@ -9,76 +11,99 @@ from aiofiles.base import to_agen, wrap
 class TestToAsyncGeneratorWrapper:
     """Test suite for the `to_agen` decorator."""
 
-    def _iter_io(
-        self, it: Iterable, *, with_timeout: float = 1.0, with_result: Any = 42
-    ) -> Generator[Any, None, None]:
-        for item in it:
+    def _doiter(self, data: Iterable, *, with_timeout: float = 0.001):
+        for datum in data:
             time.sleep(with_timeout)
-            yield item
-        return with_result
+            yield datum
+
+    @pytest.mark.parametrize(
+        "seq",
+        [
+            "",
+            "A",
+            "AB",
+            "ABC",
+            [1, 2, [3, 4]],
+            [None, None, None],
+            [Exception(), ValueError(), TypeError(), BaseException()],
+            [object(), object()],
+            [
+                1,
+                [2],
+                None,
+                {3},
+                Exception(),
+                {"a": "b"},
+                "str",
+                object(),
+                None,
+                BaseException(),
+                object(),
+                None,
+                object(),
+            ],
+        ],
+    )
+    async def test_to_agen(self, seq: Sequence) -> None:
+        adoiter = to_agen(self._doiter)
+        assert [i async for i in adoiter(seq)] == list(seq)
 
     async def _do_aiter(
-        self, ait: AsyncIterable[str], *, acc: list[str], lock: asyncio.Lock
-    ) -> str:
-        letters: list[str] = []
+        self, ait: AsyncIterable, *, global_acc: list, lock: asyncio.Lock
+    ) -> list:
+        items: list = []
         async for item in ait:
             async with lock:
-                letters.append(item)
-                acc.append(item)
+                items.append(item)
+                global_acc.append(item)
             # `async for` does not responsible for coroutine switching
             # so we need to yield control back to the event loop
             await asyncio.sleep(0)
-        return "".join(letters)
+        return items
 
-    async def test_to_agen(self) -> None:
+    async def test_to_agen_non_sequential(self) -> None:
         lock = asyncio.Lock()
-        timeout: float = 0.01
-        words: list[str] = ["Hello", "Aiofiles"]
-        word_lengths: list[int] = [len(word) for word in words]
+        collections: list[Sequence] = ["Aiofiles", tuple("Rocks"), [42, 21]]
         accumulator: list[str] = []
         tasks: list[asyncio.Task] = []
 
-        start = time.time()
-        for word in words:
+        for collection in collections:
             task = asyncio.create_task(
                 self._do_aiter(
-                    to_agen(self._iter_io)(word, with_timeout=timeout),
-                    acc=accumulator,
+                    to_agen(self._doiter)(collection),
+                    global_acc=accumulator,
                     lock=lock,
                 )
             )
             tasks.append(task)
         results = await asyncio.gather(*tasks)
-        elapsed = time.time() - start
-        result: str = "".join(accumulator)
 
-        assert max(word_lengths) * timeout < elapsed < sum(word_lengths) * timeout * 3
-        assert set(results) == set(words)
-
-        for word in words:
-            # testing non-sequential ordering
-            assert word not in result
+        for idx, collection in enumerate(collections):
+            lc = list(collection)
+            assert lc == results[idx]
+            assert lc not in accumulator
 
 
 class TestToCoroutineWrapper:
     """Test suite for the wrap decorator."""
 
-    def _do_io(self, *, with_timeout: float = 1.0, with_result: Any = 42) -> Any:
+    def _do_io(self, *, with_timeout: float = 0.001, with_result: Any = 42) -> Any:
         time.sleep(with_timeout)
         return with_result
 
     async def test_wrap(self) -> None:
         tasks: list[asyncio.Task] = []
         seconds = list(range(1, 11))
+        time_coef = 0.001
 
         start = time.time()
         for second in seconds:
             task = asyncio.create_task(
-                wrap(self._do_io)(with_timeout=second / 10, with_result=second)
+                wrap(self._do_io)(with_timeout=time_coef * second, with_result=second)
             )
             tasks.append(task)
         results = await asyncio.gather(*tasks)
         elapsed = time.time() - start
 
-        assert 0.1 < elapsed < 2  # 2 will do
+        assert seconds[0] * time_coef < elapsed < seconds[0]
         assert all(result == answer for result, answer in zip(results, seconds))

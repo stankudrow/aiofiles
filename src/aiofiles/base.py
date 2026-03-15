@@ -3,7 +3,7 @@ import threading
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from functools import partial, wraps
-from queue import Empty, Queue
+from queue import Queue
 from typing import Any
 
 
@@ -11,45 +11,33 @@ def to_agen(cb: Callable) -> Callable:
     @wraps(cb)
     async def _wrapper(*args, **kwargs) -> AsyncIterator:
         def _iterate(
-            q: Queue, *, next_item_event: threading.Event, eoi_event: threading.Event
+            q: Queue, *, next_item_event: threading.Event, eos_item: object
         ) -> None:
             try:
                 for row in cb(*args, **kwargs):
-                    # The `next_item_event` is cleared here
-                    # so that the current iteration will be blocked at the end
-                    # until the main generator allows the next iteration.
-                    # By this `yield-like` lazy behaviour is achieved
-                    # and the queue is filled successively and on-demand.
                     next_item_event.clear()
                     q.put(row)
                     next_item_event.wait()
             finally:
-                eoi_event.set()
+                q.put(eos_item)
 
         loop = asyncio.get_running_loop()
         queue: Queue = Queue()  # thread-safe
         ready_for_item = threading.Event()
-        end_of_iteration = threading.Event()
+        end_of_stream_item = object()
         gen = partial(
             _iterate,
             q=queue,
             next_item_event=ready_for_item,
-            eoi_event=end_of_iteration,
+            eos_item=end_of_stream_item,
         )
         loop.run_in_executor(None, gen)
 
         while True:
-            # In case the iterator is exhausted at the very beginning
-            if end_of_iteration.is_set():
+            item = queue.get()
+            if item is end_of_stream_item:
+                queue.task_done()
                 break
-            try:
-                # The `get_nowait` method is a remedy here
-                # because `queue.get()` could block the thread
-                # when queue is empty while EOI was not set.
-                # Playing with timeouts can also get the iteration stuck.
-                item = queue.get_nowait()
-            except Empty:
-                continue
             ready_for_item.set()
             queue.task_done()
             yield item
