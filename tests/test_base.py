@@ -44,7 +44,7 @@ class TestToAsyncGeneratorWrapper:
             ],
         ],
     )
-    async def test_to_agen(self, seq: Sequence) -> None:
+    async def test_basic_iterations(self, seq: Sequence) -> None:
         adoiter = to_agen(self._doiter)
         assert [i async for i in adoiter(seq)] == list(seq)
 
@@ -61,7 +61,7 @@ class TestToAsyncGeneratorWrapper:
             await asyncio.sleep(0)
         return items
 
-    async def test_to_agen_non_sequential(self) -> None:
+    async def test_non_sequential_execution(self) -> None:
         lock = asyncio.Lock()
         collections: list[Sequence] = ["Aiofiles", tuple("Rocks"), [42, 21]]
         accumulator: list[str] = []
@@ -82,6 +82,12 @@ class TestToAsyncGeneratorWrapper:
             lc = list(collection)
             assert lc == results[idx]
             assert lc not in accumulator
+
+    async def test_reusability(self) -> None:
+        adoiter = to_agen(self._doiter)
+        seq = [None, object(), Exception()]
+        for _ in range(2):
+            assert [i async for i in adoiter(seq)] == seq
 
 
 class TestToCoroutineWrapper:

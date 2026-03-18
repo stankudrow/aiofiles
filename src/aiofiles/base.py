@@ -17,6 +17,7 @@ def to_agen(cb: Callable) -> Callable:
                 for row in cb(*args, **kwargs):
                     next_item_event.clear()
                     q.put(row)
+                    # Only the consumer can unblock the next iteration
                     next_item_event.wait()
             finally:
                 q.put(eos_item)
@@ -24,7 +25,7 @@ def to_agen(cb: Callable) -> Callable:
         loop = asyncio.get_running_loop()
         queue: Queue = Queue()  # thread-safe
         ready_for_item = threading.Event()
-        end_of_stream_item = object()
+        end_of_stream_item = object()  # sentinel value
         gen = partial(
             _iterate,
             q=queue,
@@ -35,11 +36,10 @@ def to_agen(cb: Callable) -> Callable:
 
         while True:
             item = queue.get()
+            queue.task_done()
             if item is end_of_stream_item:
-                queue.task_done()
                 break
             ready_for_item.set()
-            queue.task_done()
             yield item
         queue.join()
 
