@@ -1,7 +1,7 @@
 import asyncio
 import time
 from collections.abc import AsyncIterable, Iterable, Sequence
-from typing import Any
+from typing import Any, Union
 
 import pytest
 
@@ -11,10 +11,19 @@ from aiofiles.base import to_agen, wrap
 class TestToAsyncGeneratorWrapper:
     """Test suite for the `to_agen` decorator."""
 
-    def _doiter(self, data: Iterable, *, with_timeout: float = 0.001):
+    def _doiter(
+        self,
+        data: Iterable,
+        *,
+        with_timeout: float = 0.001,
+        raise_if_exception: bool = False,
+    ):
         for datum in data:
+            if raise_if_exception and isinstance(datum, Exception):
+                raise datum
             time.sleep(with_timeout)
             yield datum
+        return 42
 
     @pytest.mark.parametrize(
         "seq",
@@ -88,6 +97,14 @@ class TestToAsyncGeneratorWrapper:
         seq = [None, object(), Exception()]
         for _ in range(2):
             assert [i async for i in adoiter(seq)] == seq
+
+    async def test_exception(self) -> None:
+        adoiter = to_agen(self._doiter)
+        seq = [3, 2, 1, ZeroDivisionError("zero")]
+        res: Union[None, list] = None
+        with pytest.raises(ZeroDivisionError):
+            res = [i async for i in adoiter(seq, raise_if_exception=True)]
+        assert res is None
 
 
 class TestToCoroutineWrapper:

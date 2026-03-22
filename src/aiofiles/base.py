@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from functools import partial, wraps
 from queue import Queue
-from typing import Any
+from typing import Any, Union
 
 
 def to_agen(cb: Callable) -> Callable:
@@ -13,13 +13,17 @@ def to_agen(cb: Callable) -> Callable:
         def _iterate(
             q: Queue, *, next_item_event: threading.Event, eos_item: object
         ) -> None:
+            nonlocal exc
             try:
                 for row in cb(*args, **kwargs):
                     next_item_event.clear()
                     q.put(row)
                     # Only the consumer can unblock the next iteration
                     next_item_event.wait()
+            except Exception as e:  # noqa: BLE001
+                exc = e
             finally:
+                # The End-Of-Stream entity must be put anyway
                 q.put(eos_item)
 
         loop = asyncio.get_running_loop()
@@ -34,6 +38,7 @@ def to_agen(cb: Callable) -> Callable:
         )
         loop.run_in_executor(None, gen)
 
+        exc: Union[None, Exception] = None
         while True:
             item = queue.get()
             queue.task_done()
@@ -42,6 +47,8 @@ def to_agen(cb: Callable) -> Callable:
             ready_for_item.set()
             yield item
         queue.join()
+        if exc:
+            raise exc
 
     return _wrapper
 
