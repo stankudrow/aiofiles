@@ -525,7 +525,11 @@ class TestWalkGenerators:
     )
     @pytest.mark.skipif(platform.system() == "Windows", reason="Doesn't work on Win")
     async def test_fwalk(
-        self, top: str, topdown: bool, onerror: Callable, follow_symlinks: bool
+        self,
+        top: str,
+        topdown: bool,  # noqa: FBT001
+        onerror: Callable,
+        follow_symlinks: bool,  # noqa: FBT001
     ) -> None:
         result = [  # noqa: C416
             row
@@ -569,7 +573,11 @@ class TestWalkGenerators:
         ],
     )
     async def test_walk(
-        self, top: str, topdown: bool, onerror: Callable, followlinks: bool
+        self,
+        top: str,
+        topdown: bool,  # noqa: FBT001
+        onerror: Callable,
+        followlinks: bool,  # noqa: FBT001
     ) -> None:
         result = [  # noqa: C416
             row

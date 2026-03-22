@@ -106,7 +106,7 @@ select = [
     "EM",  # flake8-errmsg (EM)
     "ERA",  # eradicate (ERA)
     "F",  # Pyflakes (F)
-    # "FBT",  # flake8-boolean-trap (FBT)
+    "FBT",  # flake8-boolean-trap (FBT)
     "I",  # isort (I)
     "ICN",  # flake8-import-conventions (ICN)
     "ISC",  # flake8-implicit-str-concat (ISC)
