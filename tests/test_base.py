@@ -92,15 +92,22 @@ class TestToAsyncGeneratorWrapper:
             assert lc == results[idx]
             assert lc not in accumulator
 
-    async def test_reusability(self) -> None:
+    async def test_aiter_exhaustion(self) -> None:
+        adoiter = to_agen(self._doiter)
+        seq = [None, object(), Exception()]
+        agen = adoiter(seq)
+        assert [i async for i in agen] == seq
+        assert [i async for i in agen] == []
+
+    async def test_same_aiter_multiple_calls(self) -> None:
         adoiter = to_agen(self._doiter)
         seq = [None, object(), Exception()]
         for _ in range(2):
             assert [i async for i in adoiter(seq)] == seq
 
-    async def test_exception(self) -> None:
+    async def test_exception_raised(self) -> None:
         adoiter = to_agen(self._doiter)
-        seq = [3, 2, 1, ZeroDivisionError("zero")]
+        seq = [3, 2, 1, ZeroDivisionError("zero"), -1]
         res: Union[None, list] = None
         with pytest.raises(ZeroDivisionError):
             res = [i async for i in adoiter(seq, raise_if_exception=True)]
